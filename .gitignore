@@ -1,0 +1,36 @@
+# ─── Sensitive data — NEVER commit these ──────────────────────
+*.csv
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# ─── Python ───────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+.pytest_cache/
+
+# ─── Node / Frontend ──────────────────────────────────────────
+node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# ─── IDE & OS ─────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

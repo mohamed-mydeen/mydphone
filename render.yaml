@@ -1,0 +1,18 @@
+# Render deployment configuration
+# https://render.com/docs/yaml-spec
+
+services:
+  - type: web
+    name: emergency-contact-vault-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+    healthCheckPath: /health
+    plan: free
