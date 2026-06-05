@@ -18,7 +18,7 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(form.email, form.password);
+      await login(form.email.trim(), form.password);
       navigate("/contacts");
     } catch (err) {
       toast.error(err.response?.data?.detail || "Invalid email or password.");
