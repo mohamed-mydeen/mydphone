@@ -1,6 +1,6 @@
 from pathlib import Path
 from pydantic_settings import BaseSettings
-from typing import List
+from typing import List, Optional
 
 # Resolve .env from this file's directory — works regardless of launch CWD
 _ENV_FILE = Path(__file__).parent / ".env"
@@ -19,6 +19,10 @@ class Settings(BaseSettings):
         "https://mydphone-kfdwt8no1-mohamed-mydeen-shahabudeen-ms-projects.vercel.app",
     ]
     APP_NAME: str = "Emergency Contact Vault"
+    # Auto-seed: if set, server will create this user on startup if no users exist
+    SEED_EMAIL: Optional[str] = "mohamedmydeen.sd@gmail.com"
+    SEED_PASSWORD: Optional[str] = "myd@4262"
+    SEED_NAME: Optional[str] = "mydeen"
 
     class Config:
         env_file = str(_ENV_FILE)

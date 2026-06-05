@@ -4,12 +4,40 @@ from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from .database import Base, engine
+from .database import Base, engine, SessionLocal
 from .routers import auth, contacts, profile
 from .config import settings
+from .models import User
+from .auth import hash_password
 
 # Create tables
 Base.metadata.create_all(bind=engine)
+
+
+def seed_admin_user():
+    """Create the admin user on startup if no users exist in the DB."""
+    if not settings.SEED_EMAIL or not settings.SEED_PASSWORD:
+        return
+    db = SessionLocal()
+    try:
+        existing = db.query(User).filter(User.email == settings.SEED_EMAIL.lower()).first()
+        if not existing:
+            user = User(
+                name=settings.SEED_NAME or "Admin",
+                email=settings.SEED_EMAIL.lower(),
+                password_hash=hash_password(settings.SEED_PASSWORD),
+            )
+            db.add(user)
+            db.commit()
+            print(f"[Seed] Created admin user: {settings.SEED_EMAIL}")
+        else:
+            print(f"[Seed] Admin user already exists: {existing.email}")
+    finally:
+        db.close()
+
+
+# Run seed before serving requests
+seed_admin_user()
 
 limiter = Limiter(key_func=get_remote_address)
 
