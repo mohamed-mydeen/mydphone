@@ -30,6 +30,11 @@ class LoginRequest(BaseModel):
     email: EmailStr
     password: str
 
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        return v.strip().lower()
+
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -54,6 +59,13 @@ class ProfileUpdate(BaseModel):
     email: Optional[EmailStr] = None
     current_password: Optional[str] = None
     new_password: Optional[str] = None
+
+    @field_validator("new_password")
+    @classmethod
+    def new_password_strength(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and len(v) < 8:
+            raise ValueError("New password must be at least 8 characters")
+        return v
 
 
 # ── Contact Schemas ───────────────────────────────────────────────────────────
