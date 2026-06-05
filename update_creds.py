@@ -4,12 +4,15 @@ from backend.models import User
 from backend.auth import hash_password
 
 db = SessionLocal()
-user = db.query(User).first()
-if user:
-    user.name = 'mydeen'
-    user.email = 'mydeen@example.com'
-    user.password_hash = hash_password('M@4262')
-    db.commit()
-    print('User updated to: mydeen@example.com / M@4262')
+email = 'mohamedmydeen.sd@gmail.com'
+password = 'myd@4262'
+
+user = db.query(User).filter(User.email == email).first()
+if not user:
+    user = User(email=email, name='mydeen', password_hash=hash_password(password))
+    db.add(user)
 else:
-    print('No user found!')
+    user.password_hash = hash_password(password)
+
+db.commit()
+print(f'User updated to: {email} / {password}')
