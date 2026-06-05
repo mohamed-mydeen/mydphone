@@ -1,4 +1,5 @@
 # ─── Sensitive data — NEVER commit these ──────────────────────
+update_creds.py
 *.csv
 *.db
 *.sqlite

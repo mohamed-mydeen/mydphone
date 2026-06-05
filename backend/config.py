@@ -19,10 +19,11 @@ class Settings(BaseSettings):
         "https://mydphone-kfdwt8no1-mohamed-mydeen-shahabudeen-ms-projects.vercel.app",
     ]
     APP_NAME: str = "Emergency Contact Vault"
-    # Auto-seed: if set, server will create this user on startup if no users exist
-    SEED_EMAIL: Optional[str] = "mohamedmydeen.sd@gmail.com"
-    SEED_PASSWORD: Optional[str] = "myd@4262"
-    SEED_NAME: Optional[str] = "mydeen"
+    # Auto-seed: set these via environment variables on your deployment platform (Render/etc.)
+    # NEVER hardcode credentials here — use env vars only
+    SEED_EMAIL: Optional[str] = None
+    SEED_PASSWORD: Optional[str] = None
+    SEED_NAME: Optional[str] = None
 
     class Config:
         env_file = str(_ENV_FILE)
