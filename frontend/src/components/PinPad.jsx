@@ -5,6 +5,13 @@ import { useVault } from "../context/VaultContext";
 
 export default function PinPad() {
   const { hasPin, verifyPin, setupPin } = useVault();
+
+  const KEYPAD_LETTERS = {
+    1: "", 2: "ABC", 3: "DEF",
+    4: "GHI", 5: "JKL", 6: "MNO",
+    7: "PQRS", 8: "TUV", 9: "WXYZ",
+    0: ""
+  };
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [step, setStep] = useState(hasPin ? "VERIFY" : "SETUP_1");
@@ -117,50 +124,75 @@ export default function PinPad() {
       </div>
 
       {/* Numpad */}
-      <div className="grid grid-cols-3 gap-x-8 gap-y-6 w-full px-6">
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-          <button
-            key={num}
-            disabled={loading}
-            onClick={() => handleKeyPress(num.toString())}
-            className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-medium active:scale-95 transition-all"
-            style={{ color: "var(--text)", background: "var(--surface-2)" }}
-          >
-            {num}
-          </button>
-        ))}
-        
-        {/* Biometrics button */}
-        {step === "VERIFY" ? (
-          <button
-            onClick={triggerBiometrics}
-            className="w-16 h-16 rounded-full flex items-center justify-center active:scale-95 transition-all"
-            style={{ color: "var(--text-3)", background: "transparent" }}
-          >
-            <FingerPrintIcon className="w-8 h-8" />
-          </button>
-        ) : <div />}
+      <div className="flex flex-col gap-4 sm:gap-6 w-full max-w-[280px] sm:max-w-[320px] mx-auto mt-4">
+        {/* Row 1 */}
+        <div className="flex justify-between w-full">
+          {[1, 2, 3].map(num => (
+            <KeyButton key={num} num={num} onClick={() => handleKeyPress(num.toString())} loading={loading} letters={KEYPAD_LETTERS[num]} />
+          ))}
+        </div>
+        {/* Row 2 */}
+        <div className="flex justify-between w-full">
+          {[4, 5, 6].map(num => (
+            <KeyButton key={num} num={num} onClick={() => handleKeyPress(num.toString())} loading={loading} letters={KEYPAD_LETTERS[num]} />
+          ))}
+        </div>
+        {/* Row 3 */}
+        <div className="flex justify-between w-full">
+          {[7, 8, 9].map(num => (
+            <KeyButton key={num} num={num} onClick={() => handleKeyPress(num.toString())} loading={loading} letters={KEYPAD_LETTERS[num]} />
+          ))}
+        </div>
+        {/* Row 4 */}
+        <div className="flex justify-between w-full items-center">
+          {/* Biometrics or Empty Space */}
+          <div className="w-[72px] sm:w-[82px] flex justify-center">
+            {step === "VERIFY" ? (
+              <button
+                onClick={triggerBiometrics}
+                className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center active:scale-95 transition-all"
+                style={{ color: "var(--text-3)", background: "transparent" }}
+              >
+                <FingerPrintIcon className="w-8 h-8 sm:w-9 sm:h-9" />
+              </button>
+            ) : <div />}
+          </div>
 
-        <button
-          disabled={loading}
-          onClick={() => handleKeyPress("0")}
-          className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-medium active:scale-95 transition-all"
-          style={{ color: "var(--text)", background: "var(--surface-2)" }}
-        >
-          0
-        </button>
+          <KeyButton num={0} onClick={() => handleKeyPress("0")} loading={loading} letters={KEYPAD_LETTERS[0]} />
 
-        <button
-          onClick={handleDelete}
-          disabled={pin.length === 0 || loading}
-          className="w-16 h-16 rounded-full flex items-center justify-center active:scale-95 transition-all"
-          style={{ color: "var(--text)", opacity: pin.length === 0 ? 0.3 : 1 }}
-        >
-          <BackspaceIcon className="w-7 h-7" />
-        </button>
+          {/* Delete Button */}
+          <div className="w-[72px] sm:w-[82px] flex justify-center">
+            <button
+              onClick={handleDelete}
+              disabled={pin.length === 0 || loading}
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center active:scale-95 transition-all"
+              style={{ color: "var(--text)", opacity: pin.length === 0 ? 0.3 : 1 }}
+            >
+              <BackspaceIcon className="w-7 h-7 sm:w-8 sm:h-8" />
+            </button>
+          </div>
+        </div>
       </div>
 
       {loading && <p className="mt-8 text-xs font-medium animate-pulse" style={{ color: "var(--text-3)" }}>Verifying securely...</p>}
     </div>
+  );
+}
+
+function KeyButton({ num, onClick, loading, letters }) {
+  return (
+    <button
+      disabled={loading}
+      onClick={onClick}
+      className="w-[72px] h-[72px] sm:w-[82px] sm:h-[82px] rounded-full flex flex-col items-center justify-center active:scale-95 transition-all"
+      style={{ color: "var(--text)", background: "var(--surface-2)" }}
+    >
+      <span className="text-[28px] sm:text-[32px] font-normal leading-none" style={{ marginTop: letters ? "8px" : "0" }}>{num}</span>
+      {letters && (
+        <span className="text-[9px] sm:text-[10px] font-bold tracking-[0.15em] mt-1 opacity-50 uppercase leading-none">
+          {letters}
+        </span>
+      )}
+    </button>
   );
 }
