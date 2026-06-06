@@ -10,6 +10,7 @@ import Contacts from "./pages/Contacts";
 import Emergency from "./pages/Emergency";
 import Profile from "./pages/Profile";
 import Import from "./pages/Import";
+import Photos from "./pages/Photos";
 
 /* AnimatedRoutes — re-mounts PageTransition on every location change */
 function AnimatedRoutes() {
@@ -24,6 +25,7 @@ function AnimatedRoutes() {
 
         {/* Protected */}
         <Route path="/contacts"  element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
+        <Route path="/photos"    element={<ProtectedRoute><Photos /></ProtectedRoute>} />
         <Route path="/emergency" element={<ProtectedRoute><Emergency /></ProtectedRoute>} />
         <Route path="/profile"   element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/import"    element={<ProtectedRoute><Import /></ProtectedRoute>} />

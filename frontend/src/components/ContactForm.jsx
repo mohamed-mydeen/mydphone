@@ -9,6 +9,18 @@ const EMPTY = {
   is_favorite: false, is_emergency: false,
 };
 
+const Field = ({ label, id, error, required, children }) => (
+  <div>
+    <label htmlFor={id} className="input-label">
+      {label}{required && <span style={{ color: "var(--brand)" }}> *</span>}
+    </label>
+    {children}
+    {error && (
+      <p className="text-xs mt-1 font-medium" style={{ color: "#ef4444" }}>{error}</p>
+    )}
+  </div>
+);
+
 export default function ContactForm({ initial = null, onSave, onCancel, loading = false }) {
   const [form, setForm] = useState(initial ? { ...EMPTY, ...initial } : EMPTY);
   const [errors, setErrors] = useState({});
@@ -45,17 +57,7 @@ export default function ContactForm({ initial = null, onSave, onCancel, loading 
     onSave(payload);
   };
 
-  const Field = ({ label, id, error, required, children }) => (
-    <div>
-      <label htmlFor={id} className="input-label">
-        {label}{required && <span style={{ color: "var(--brand)" }}> *</span>}
-      </label>
-      {children}
-      {error && (
-        <p className="text-xs mt-1 font-medium" style={{ color: "#ef4444" }}>{error}</p>
-      )}
-    </div>
-  );
+
 
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">

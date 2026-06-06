@@ -135,3 +135,19 @@ class ImportResult(BaseModel):
     imported: int
     skipped: int
     errors: List[str]
+
+
+# ── Photo Schemas ─────────────────────────────────────────────────────────────
+
+class PhotoOut(BaseModel):
+    id: int
+    user_id: int
+    title: Optional[str]
+    album: str
+    file_path: str
+    content_type: str
+    size: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

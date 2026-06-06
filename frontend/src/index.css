@@ -59,6 +59,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    overflow-y: scroll; /* Prevents layout shifting/shaking */
   }
 
   body {

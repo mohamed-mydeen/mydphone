@@ -7,12 +7,14 @@ import {
   ArrowRightStartOnRectangleIcon,
   SunIcon,
   MoonIcon,
+  PhotoIcon,
 } from "@heroicons/react/24/outline";
 import {
   UsersIcon as UsersSolid,
   ShieldExclamationIcon as ShieldSolid,
   UserCircleIcon as UserCircleSolid,
   ArrowUpTrayIcon as UploadSolid,
+  PhotoIcon as PhotoSolid,
 } from "@heroicons/react/24/solid";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -20,6 +22,7 @@ import Avatar from "./Avatar";
 
 const NAV = [
   { to: "/contacts",  label: "Contacts",   Icon: UsersIcon,            IconActive: UsersSolid },
+  { to: "/photos",    label: "Photos",     Icon: PhotoIcon,            IconActive: PhotoSolid },
   { to: "/emergency", label: "Emergency",  Icon: ShieldExclamationIcon, IconActive: ShieldSolid },
   { to: "/profile",   label: "Profile",    Icon: UserCircleIcon,        IconActive: UserCircleSolid },
   { to: "/import",    label: "Import CSV", Icon: ArrowUpTrayIcon,       IconActive: UploadSolid },

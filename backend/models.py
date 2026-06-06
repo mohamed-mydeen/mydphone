@@ -16,6 +16,7 @@ class User(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     contacts = relationship("Contact", back_populates="owner", cascade="all, delete-orphan")
+    photos = relationship("Photo", back_populates="owner", cascade="all, delete-orphan")
 
 
 class Contact(Base):
@@ -34,3 +35,18 @@ class Contact(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     owner = relationship("User", back_populates="contacts")
+
+
+class Photo(Base):
+    __tablename__ = "photos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String(255), nullable=True)
+    album = Column(String(50), nullable=False, index=True, default="Personal")
+    file_path = Column(String(500), nullable=False)
+    content_type = Column(String(100), nullable=False)
+    size = Column(Integer, nullable=False)  # in bytes
+    created_at = Column(DateTime, server_default=func.now())
+
+    owner = relationship("User", back_populates="photos")
