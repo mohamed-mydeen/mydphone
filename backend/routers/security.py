@@ -105,7 +105,7 @@ def verify_vault_pin(
         
         db.commit()
         log_vault_action(db, current_user.id, "pin_fail", get_client_ip(request), device_id)
-        raise HTTPException(status_code=401, detail="Incorrect PIN.")
+        raise HTTPException(status_code=400, detail="Incorrect PIN.")
 
     # Success
     current_user.failed_pin_attempts = 0

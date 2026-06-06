@@ -24,13 +24,14 @@ export function VaultProvider({ children }) {
 
   // Fetch pin status on login
   useEffect(() => {
+    const token = localStorage.getItem("ecv_token");
     if (user && token) {
       api.get("/security/pin/status").then(res => setHasPin(res.data.has_pin)).catch(() => {});
       registerDevice();
     } else {
       setVaultToken(null);
     }
-  }, [user, token]);
+  }, [user]);
 
   // Auto lock timer
   useEffect(() => {
