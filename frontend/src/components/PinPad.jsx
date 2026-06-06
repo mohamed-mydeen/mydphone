@@ -66,7 +66,7 @@ export default function PinPad() {
       toast.success("Vault PIN configured securely.");
       // It will auto switch to VERIFY or be unlocked
     } catch (err) {
-      toast.error("Failed to setup PIN");
+      toast.error(err.response?.data?.detail || "Failed to setup PIN");
       setPin("");
       setConfirmPin("");
       setStep("SETUP_1");

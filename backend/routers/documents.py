@@ -51,6 +51,9 @@ def require_vault(x_vault_token: Optional[str] = Header(None)):
     if not verify_vault_access(x_vault_token):
         raise HTTPException(status_code=403, detail="Vault access locked. Please enter your PIN.")
 
+def get_client_ip(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
 def log_action(db, user_id, action, ip, target_id=None):
     log = VaultLog(user_id=user_id, action=action, ip_address=ip, target_id=target_id)
     db.add(log)
@@ -129,7 +132,7 @@ async def upload_document(
     db.refresh(doc)
 
     logger.info(f"[UPLOAD] user={current_user.id} doc={doc.id} name='{doc.document_name}' size={size}")
-    log_action(db, current_user.id, "upload", request.client.host, str(doc.id))
+    log_action(db, current_user.id, "upload", get_client_ip(request), str(doc.id))
     return doc
 
 
@@ -199,7 +202,7 @@ def get_document_content(
         raise HTTPException(status_code=404, detail="File is missing from server storage")
 
     logger.info(f"[DOWNLOAD] user={current_user.id} doc={doc.id}")
-    log_action(db, current_user.id, "download", request.client.host, str(doc.id))
+    log_action(db, current_user.id, "download", get_client_ip(request), str(doc.id))
 
     return FileResponse(
         path=file_path,
@@ -315,7 +318,7 @@ async def replace_document(
     db.commit()
     db.refresh(doc)
     logger.info(f"[REPLACE] user={current_user.id} doc={doc.id}")
-    log_action(db, current_user.id, "upload", request.client.host, str(doc.id))
+    log_action(db, current_user.id, "upload", get_client_ip(request), str(doc.id))
     return doc
 
 
@@ -342,7 +345,7 @@ def delete_document(
             pass
 
     logger.info(f"[DELETE] user={current_user.id} doc={doc.id} name='{doc.document_name}'")
-    log_action(db, current_user.id, "delete", request.client.host, str(doc.id))
+    log_action(db, current_user.id, "delete", get_client_ip(request), str(doc.id))
     db.delete(doc)
     db.commit()
 

@@ -38,6 +38,9 @@ def hash_pin(pin: str) -> str:
 def verify_pin(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
+def get_client_ip(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
 def log_vault_action(db: Session, user_id: int, action: str, ip: str, device_id: str = None, target_id: str = None):
     log = VaultLog(
         user_id=user_id,
@@ -72,7 +75,7 @@ def setup_pin(
 
     current_user.vault_pin_hash = hash_pin(payload.pin)
     db.commit()
-    log_vault_action(db, current_user.id, "pin_setup", request.client.host)
+    log_vault_action(db, current_user.id, "pin_setup", get_client_ip(request))
     return {"message": "PIN setup successfully"}
 
 
@@ -97,18 +100,18 @@ def verify_vault_pin(
         if current_user.failed_pin_attempts >= 5:
             current_user.vault_locked_until = datetime.utcnow() + timedelta(minutes=15)
             db.commit()
-            log_vault_action(db, current_user.id, "vault_locked", request.client.host, device_id)
+            log_vault_action(db, current_user.id, "vault_locked", get_client_ip(request), device_id)
             raise HTTPException(status_code=403, detail="Too many failed attempts. Vault locked for 15 minutes.")
         
         db.commit()
-        log_vault_action(db, current_user.id, "pin_fail", request.client.host, device_id)
+        log_vault_action(db, current_user.id, "pin_fail", get_client_ip(request), device_id)
         raise HTTPException(status_code=401, detail="Incorrect PIN.")
 
     # Success
     current_user.failed_pin_attempts = 0
     current_user.vault_locked_until = None
     db.commit()
-    log_vault_action(db, current_user.id, "pin_success", request.client.host, device_id)
+    log_vault_action(db, current_user.id, "pin_success", get_client_ip(request), device_id)
     
     # Normally we would issue a short-lived signed JWT for the vault here,
     # but the frontend will just set a local state variable for "unlocked" and attach
@@ -137,7 +140,7 @@ def reset_pin(
     current_user.failed_pin_attempts = 0
     current_user.vault_locked_until = None
     db.commit()
-    log_vault_action(db, current_user.id, "pin_reset", request.client.host)
+    log_vault_action(db, current_user.id, "pin_reset", get_client_ip(request))
     return {"message": "PIN reset successfully"}
 
 
