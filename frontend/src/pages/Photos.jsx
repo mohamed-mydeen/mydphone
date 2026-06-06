@@ -68,6 +68,15 @@ export default function Photos() {
   const [previewPhoto, setPreviewPhoto] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+
+  const handlePasswordSubmit = (e) => {
+    e.preventDefault();
+    if (passwordInput.trim() === "4262") setIsAuthenticated(true);
+    else toast.error("Incorrect password");
+  };
+
   const loadPhotos = async (albumFilter = "All") => {
     setLoading(true);
     try {
@@ -114,6 +123,33 @@ export default function Photos() {
   }, [photos, query]);
 
   const isSearching = !!query.trim();
+
+  if (!isAuthenticated) {
+    return (
+      <div className="app-shell">
+        <Navbar />
+        <div className="page-body">
+          <div className="page-content" style={{ maxWidth: 420, margin: "0 auto" }}>
+            <div className="card p-6">
+              <h2 className="text-lg font-bold mb-2" style={{ color: "var(--text)" }}>Access Restricted</h2>
+              <p className="text-sm mb-5" style={{ color: "var(--text-3)" }}>Enter the password to access the Secure Vault.</p>
+              <form onSubmit={handlePasswordSubmit}>
+                <input 
+                  type="password" 
+                  value={passwordInput} 
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  placeholder="pass keyword: ur favorite 4 digit number" 
+                  className="input mb-3" 
+                  autoFocus 
+                />
+                <button type="submit" className="btn-primary w-full py-2.5">Unlock</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">
