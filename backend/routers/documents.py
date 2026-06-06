@@ -2,15 +2,17 @@ import uuid
 import logging
 from pathlib import Path
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Query
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, Query, Header, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
+from jose import jwt, JWTError
 
 from ..database import get_db
-from ..models import Document, User
+from ..models import Document, User, VaultLog
 from ..schemas import DocumentOut
 from ..auth import get_current_user
+from ..config import settings
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
@@ -34,10 +36,32 @@ VALID_CATEGORIES = [
 ]
 
 
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def verify_vault_access(x_vault_token: Optional[str] = Header(None)) -> bool:
+    if not x_vault_token:
+        return False
+    try:
+        payload = jwt.decode(x_vault_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        return payload.get("vault") is True
+    except JWTError:
+        return False
+
+def require_vault(x_vault_token: Optional[str] = Header(None)):
+    if not verify_vault_access(x_vault_token):
+        raise HTTPException(status_code=403, detail="Vault access locked. Please enter your PIN.")
+
+def log_action(db, user_id, action, ip, target_id=None):
+    log = VaultLog(user_id=user_id, action=action, ip_address=ip, target_id=target_id)
+    db.add(log)
+    db.commit()
+
+
 # ── Upload ────────────────────────────────────────────────────────────────────
 
-@router.post("", response_model=DocumentOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=DocumentOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_vault)])
 async def upload_document(
+    request: Request,
     file: UploadFile = File(...),
     document_name: str = Form(...),
     category: str = Form("Other"),
@@ -105,6 +129,7 @@ async def upload_document(
     db.refresh(doc)
 
     logger.info(f"[UPLOAD] user={current_user.id} doc={doc.id} name='{doc.document_name}' size={size}")
+    log_action(db, current_user.id, "upload", request.client.host, str(doc.id))
     return doc
 
 
@@ -112,13 +137,19 @@ async def upload_document(
 
 @router.get("", response_model=List[DocumentOut])
 def list_documents(
+    request: Request,
     category: Optional[str] = Query(None),
     q: Optional[str] = Query(None),
     emergency: Optional[bool] = Query(None),
     favorite: Optional[bool] = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    x_vault_token: Optional[str] = Header(None),
 ):
+    # If not specifically asking for emergency documents, require vault token
+    if emergency is not True:
+        if not verify_vault_access(x_vault_token):
+            raise HTTPException(status_code=403, detail="Vault access locked.")
     query = db.query(Document).filter(Document.user_id == current_user.id)
 
     if category and category != "All":
@@ -147,22 +178,28 @@ def list_documents(
 
 @router.get("/{doc_id}/content")
 def get_document_content(
+    request: Request,
     doc_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    x_vault_token: Optional[str] = Header(None),
 ):
-    """Stream document content securely. Only the owner can access."""
+    """Stream document content securely."""
     doc = db.query(Document).filter(
         Document.id == doc_id, Document.user_id == current_user.id
     ).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
+    if not doc.is_emergency and not verify_vault_access(x_vault_token):
+        raise HTTPException(status_code=403, detail="Vault access locked.")
+
     file_path = Path(doc.file_path)
     if not file_path.exists() or not file_path.is_file():
         raise HTTPException(status_code=404, detail="File is missing from server storage")
 
     logger.info(f"[DOWNLOAD] user={current_user.id} doc={doc.id}")
+    log_action(db, current_user.id, "download", request.client.host, str(doc.id))
 
     return FileResponse(
         path=file_path,
@@ -173,7 +210,7 @@ def get_document_content(
 
 # ── Toggle favorite ──────────────────────────────────────────────────────────
 
-@router.patch("/{doc_id}/favorite", response_model=DocumentOut)
+@router.patch("/{doc_id}/favorite", response_model=DocumentOut, dependencies=[Depends(require_vault)])
 def toggle_favorite(
     doc_id: int,
     db: Session = Depends(get_db),
@@ -193,7 +230,7 @@ def toggle_favorite(
 
 # ── Toggle emergency ─────────────────────────────────────────────────────────
 
-@router.patch("/{doc_id}/emergency", response_model=DocumentOut)
+@router.patch("/{doc_id}/emergency", response_model=DocumentOut, dependencies=[Depends(require_vault)])
 def toggle_emergency(
     doc_id: int,
     db: Session = Depends(get_db),
@@ -213,8 +250,9 @@ def toggle_emergency(
 
 # ── Replace (re-upload) ──────────────────────────────────────────────────────
 
-@router.put("/{doc_id}", response_model=DocumentOut)
+@router.put("/{doc_id}", response_model=DocumentOut, dependencies=[Depends(require_vault)])
 async def replace_document(
+    request: Request,
     doc_id: int,
     file: UploadFile = File(...),
     document_name: Optional[str] = Form(None),
@@ -277,13 +315,15 @@ async def replace_document(
     db.commit()
     db.refresh(doc)
     logger.info(f"[REPLACE] user={current_user.id} doc={doc.id}")
+    log_action(db, current_user.id, "upload", request.client.host, str(doc.id))
     return doc
 
 
 # ── Delete ────────────────────────────────────────────────────────────────────
 
-@router.delete("/{doc_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{doc_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_vault)])
 def delete_document(
+    request: Request,
     doc_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -302,13 +342,14 @@ def delete_document(
             pass
 
     logger.info(f"[DELETE] user={current_user.id} doc={doc.id} name='{doc.document_name}'")
+    log_action(db, current_user.id, "delete", request.client.host, str(doc.id))
     db.delete(doc)
     db.commit()
 
 
 # ── Storage stats ─────────────────────────────────────────────────────────────
 
-@router.get("/stats/usage")
+@router.get("/stats/usage", dependencies=[Depends(require_vault)])
 def get_storage_usage(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),

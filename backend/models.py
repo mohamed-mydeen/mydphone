@@ -13,11 +13,20 @@ class User(Base):
     name = Column(String(100), nullable=False)
     email = Column(String(255), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
+    
+    # Security upgrades
+    vault_pin_hash = Column(String(255), nullable=True)
+    vault_locked_until = Column(DateTime, nullable=True)
+    failed_pin_attempts = Column(Integer, default=0, nullable=False)
+    token_version = Column(Integer, default=1, nullable=False)
+    
     created_at = Column(DateTime, server_default=func.now())
 
     contacts = relationship("Contact", back_populates="owner", cascade="all, delete-orphan")
     photos = relationship("Photo", back_populates="owner", cascade="all, delete-orphan")
     documents = relationship("Document", back_populates="owner", cascade="all, delete-orphan")
+    vault_logs = relationship("VaultLog", back_populates="owner", cascade="all, delete-orphan")
+    trusted_devices = relationship("TrustedDevice", back_populates="owner", cascade="all, delete-orphan")
 
 
 class Contact(Base):
@@ -71,3 +80,31 @@ class Document(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     owner = relationship("User", back_populates="documents")
+
+
+class VaultLog(Base):
+    __tablename__ = "vault_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    action = Column(String(50), nullable=False)  # upload, download, delete, login, pin_fail, pin_success
+    device_id = Column(String(255), nullable=True)
+    target_id = Column(String(255), nullable=True) # e.g. document_id or "Vault"
+    ip_address = Column(String(50), nullable=True)
+    timestamp = Column(DateTime, server_default=func.now())
+
+    owner = relationship("User", back_populates="vault_logs")
+
+
+class TrustedDevice(Base):
+    __tablename__ = "trusted_devices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    device_id = Column(String(255), nullable=False, index=True)
+    device_name = Column(String(255), nullable=True)
+    browser_info = Column(String(255), nullable=True)
+    last_login_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    created_at = Column(DateTime, server_default=func.now())
+
+    owner = relationship("User", back_populates="trusted_devices")

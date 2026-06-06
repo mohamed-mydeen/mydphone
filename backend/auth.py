@@ -47,9 +47,16 @@ def get_current_user(
 ) -> User:
     payload = decode_token(credentials.credentials)
     user_id: Optional[int] = payload.get("sub")
+    token_version: Optional[int] = payload.get("tv", 1)
+    
     if user_id is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    
     user = db.query(User).filter(User.id == int(user_id)).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        
+    if getattr(user, "token_version", 1) != token_version:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
+        
     return user

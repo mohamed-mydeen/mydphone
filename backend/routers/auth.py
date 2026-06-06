@@ -30,7 +30,10 @@ def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
         )
-    token = create_access_token({"sub": str(user.id)})
+    token = create_access_token({
+        "sub": str(user.id),
+        "tv": getattr(user, "token_version", 1)
+    })
     return TokenResponse(access_token=token, user=UserOut.model_validate(user))
 
 

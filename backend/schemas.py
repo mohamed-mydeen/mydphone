@@ -171,3 +171,29 @@ class DocumentOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── Security Schemas ────────────────────────────────────────────────────────────
+
+class VaultLogOut(BaseModel):
+    id: int
+    action: str
+    device_id: Optional[str]
+    target_id: Optional[str]
+    ip_address: Optional[str]
+    timestamp: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class TrustedDeviceOut(BaseModel):
+    id: int
+    device_id: str
+    device_name: Optional[str]
+    browser_info: Optional[str]
+    last_login_at: datetime
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

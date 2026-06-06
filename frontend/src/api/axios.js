@@ -7,10 +7,15 @@ const api = axios.create({
   timeout: 15000,
 });
 
-// Attach JWT on every request
+// Attach JWT and Vault tokens
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("ecv_token");
+  const vaultToken = sessionStorage.getItem("ecv_vault_token");
+  const deviceId = localStorage.getItem("ecv_device_id");
+
   if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (vaultToken) config.headers["X-Vault-Token"] = vaultToken;
+  if (deviceId) config.headers["X-Device-Id"] = deviceId;
   return config;
 });
 

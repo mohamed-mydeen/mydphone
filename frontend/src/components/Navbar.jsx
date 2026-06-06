@@ -9,6 +9,7 @@ import {
   MoonIcon,
   PhotoIcon,
   DocumentIcon,
+  ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 import {
   UsersIcon as UsersSolid,
@@ -17,6 +18,7 @@ import {
   ArrowUpTrayIcon as UploadSolid,
   PhotoIcon as PhotoSolid,
   DocumentIcon as DocumentSolid,
+  ShieldCheckIcon as ShieldCheckSolid,
 } from "@heroicons/react/24/solid";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
@@ -25,6 +27,7 @@ import Avatar from "./Avatar";
 const NAV = [
   { to: "/contacts",  label: "Contacts",   Icon: UsersIcon,            IconActive: UsersSolid },
   { to: "/documents", label: "Documents",  Icon: DocumentIcon,         IconActive: DocumentSolid },
+  { to: "/security",  label: "Security",   Icon: ShieldCheckIcon,      IconActive: ShieldCheckSolid },
   { to: "/photos",    label: "Photos",     Icon: PhotoIcon,            IconActive: PhotoSolid },
   { to: "/emergency", label: "Emergency",  Icon: ShieldExclamationIcon, IconActive: ShieldSolid },
   { to: "/profile",   label: "Profile",    Icon: UserCircleIcon,        IconActive: UserCircleSolid },

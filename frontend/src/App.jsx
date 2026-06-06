@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
+import { VaultProvider } from "./context/VaultContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PageTransition from "./components/PageTransition";
 import Login from "./pages/Login";
@@ -12,6 +13,7 @@ import Profile from "./pages/Profile";
 import Import from "./pages/Import";
 import Photos from "./pages/Photos";
 import Documents from "./pages/Documents";
+import SecurityDashboard from "./pages/SecurityDashboard";
 
 /* AnimatedRoutes — re-mounts PageTransition on every location change */
 function AnimatedRoutes() {
@@ -28,6 +30,7 @@ function AnimatedRoutes() {
         <Route path="/contacts"  element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
         <Route path="/photos"    element={<ProtectedRoute><Photos /></ProtectedRoute>} />
         <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
+        <Route path="/security"  element={<ProtectedRoute><SecurityDashboard /></ProtectedRoute>} />
         <Route path="/emergency" element={<ProtectedRoute><Emergency /></ProtectedRoute>} />
         <Route path="/profile"   element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/import"    element={<ProtectedRoute><Import /></ProtectedRoute>} />
@@ -43,9 +46,11 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <BrowserRouter>
-          <AnimatedRoutes />
-        </BrowserRouter>
+        <VaultProvider>
+          <BrowserRouter>
+            <AnimatedRoutes />
+          </BrowserRouter>
+        </VaultProvider>
 
         <Toaster
           position="top-right"

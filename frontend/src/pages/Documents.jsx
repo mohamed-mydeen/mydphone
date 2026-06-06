@@ -13,6 +13,8 @@ import EmptyState from "../components/EmptyState";
 import LoadingSpinner from "../components/LoadingSpinner";
 import DocumentUploadModal from "../components/DocumentUploadModal";
 import Modal from "../components/Modal";
+import PinPad from "../components/PinPad";
+import { useVault } from "../context/VaultContext";
 
 const CATEGORIES = [
   { label: "All", value: "All", icon: "📁" },
@@ -67,14 +69,8 @@ export default function Documents() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [stats, setStats] = useState(null);
 
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [passwordInput, setPasswordInput] = useState("");
-
-  const handlePasswordSubmit = (e) => {
-    e.preventDefault();
-    if (passwordInput.trim() === "4262") setIsAuthenticated(true);
-    else toast.error("Incorrect password");
-  };
+  const { isUnlocked, privacyMode } = useVault();
+  const [revealPrivacy, setRevealPrivacy] = useState(false);
 
   const loadDocs = async () => {
     setLoading(true);
@@ -98,11 +94,11 @@ export default function Documents() {
   };
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isUnlocked) {
       loadDocs();
       loadStats();
     }
-  }, [filter, isAuthenticated]);
+  }, [filter, isUnlocked]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -175,28 +171,12 @@ export default function Documents() {
   const isSearching = !!query.trim();
 
   // ── PIN Gate ──
-  if (!isAuthenticated) {
+  if (!isUnlocked) {
     return (
       <div className="app-shell">
         <Navbar />
-        <div className="page-body">
-          <div className="page-content" style={{ maxWidth: 420, margin: "0 auto" }}>
-            <div className="card p-6">
-              <h2 className="text-lg font-bold mb-2" style={{ color: "var(--text)" }}>Access Restricted</h2>
-              <p className="text-sm mb-5" style={{ color: "var(--text-3)" }}>Enter the password to access the Document Vault.</p>
-              <form onSubmit={handlePasswordSubmit}>
-                <input
-                  type="password"
-                  value={passwordInput}
-                  onChange={(e) => setPasswordInput(e.target.value)}
-                  placeholder="pass keyword: ur favorite 4 digit number"
-                  className="input mb-3"
-                  autoFocus
-                />
-                <button type="submit" className="btn-primary w-full py-2.5">Unlock</button>
-              </form>
-            </div>
-          </div>
+        <div className="page-body flex items-center justify-center">
+          <PinPad />
         </div>
       </div>
     );
@@ -216,10 +196,20 @@ export default function Documents() {
                 {stats ? `${stats.total_documents} documents • ${stats.total_size_mb} MB used` : "Loading…"}
               </p>
             </div>
-            <button onClick={() => setShowUpload(true)} className="btn-primary gap-1.5 text-xs px-3 py-2">
-              <PlusIcon className="w-4 h-4" strokeWidth={2.5} />
-              Upload
-            </button>
+            <div className="flex items-center gap-2">
+              {privacyMode && (
+                <button
+                  onClick={() => setRevealPrivacy(!revealPrivacy)}
+                  className="btn-secondary text-xs px-3 py-2 mr-2"
+                >
+                  {revealPrivacy ? "Hide Data" : "Reveal Data"}
+                </button>
+              )}
+              <button onClick={() => setShowUpload(true)} className="btn-primary gap-1.5 text-xs px-3 py-2">
+                <PlusIcon className="w-4 h-4" strokeWidth={2.5} />
+                Upload
+              </button>
+            </div>
           </div>
 
           {/* Search + View Toggle */}
@@ -305,7 +295,9 @@ export default function Documents() {
 
                   {/* Name */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate" style={{ color: "var(--text)" }}>{doc.document_name}</p>
+                    <p className={`text-sm font-semibold truncate transition-all duration-300 ${privacyMode && !revealPrivacy ? 'blur-sm select-none' : ''}`} style={{ color: "var(--text)" }}>
+                      {privacyMode && !revealPrivacy ? "Secure Document" : doc.document_name}
+                    </p>
                     <p className="text-2xs mt-0.5" style={{ color: "var(--text-4)" }}>{doc.category}</p>
                   </div>
 
@@ -339,7 +331,9 @@ export default function Documents() {
                     <DocumentIcon className="w-5 h-5" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate" style={{ color: "var(--text)" }}>{doc.document_name}</p>
+                    <p className={`text-sm font-semibold truncate transition-all duration-300 ${privacyMode && !revealPrivacy ? 'blur-sm select-none' : ''}`} style={{ color: "var(--text)" }}>
+                      {privacyMode && !revealPrivacy ? "Secure Document" : doc.document_name}
+                    </p>
                     <p className="text-2xs" style={{ color: "var(--text-4)" }}>
                       {doc.category} • {formatSize(doc.file_size)} • {formatDate(doc.uploaded_at)}
                     </p>
@@ -399,7 +393,9 @@ export default function Documents() {
                   <DocumentIcon className="w-4.5 h-4.5" />
                 </div>
                 <div className="min-w-0">
-                  <h2 className="text-sm font-semibold truncate" style={{ color: "var(--text)" }}>{previewDoc.document_name}</h2>
+                  <h2 className="text-sm font-semibold truncate" style={{ color: "var(--text)" }}>
+                    {privacyMode && !revealPrivacy ? "Secure Document" : previewDoc.document_name}
+                  </h2>
                   <p className="text-2xs" style={{ color: "var(--text-4)" }}>{previewDoc.category}</p>
                 </div>
               </div>
@@ -412,12 +408,12 @@ export default function Documents() {
             <div className="flex-1 overflow-y-auto p-5">
               {/* Inline preview for images */}
               {["JPG", "PNG", "WEBP"].includes(previewDoc.file_type) && (
-                <SecureDocPreview docId={previewDoc.id} contentType={previewDoc.content_type} />
+                <SecureDocPreview docId={previewDoc.id} contentType={previewDoc.content_type} blurred={privacyMode && !revealPrivacy} />
               )}
 
               {/* PDF inline preview */}
               {previewDoc.file_type === "PDF" && (
-                <SecureDocPreview docId={previewDoc.id} contentType={previewDoc.content_type} />
+                <SecureDocPreview docId={previewDoc.id} contentType={previewDoc.content_type} blurred={privacyMode && !revealPrivacy} />
               )}
 
               {/* Metadata */}
@@ -488,7 +484,7 @@ export default function Documents() {
 
 
 /* ── Secure Document Preview ── */
-function SecureDocPreview({ docId, contentType }) {
+function SecureDocPreview({ docId, contentType, blurred }) {
   const [src, setSrc] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -527,6 +523,14 @@ function SecureDocPreview({ docId, contentType }) {
   }
 
   if (contentType === "application/pdf") {
+    if (blurred) {
+      return (
+        <div className="w-full flex flex-col items-center justify-center" style={{ height: "400px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface-2)" }}>
+           <DocumentIcon className="w-10 h-10 mb-2 opacity-50" />
+           <p className="text-xs font-semibold text-gray-400">PDF Hidden in Privacy Mode</p>
+        </div>
+      );
+    }
     return (
       <iframe
         src={src}
@@ -541,7 +545,7 @@ function SecureDocPreview({ docId, contentType }) {
     <img
       src={src}
       alt="Document preview"
-      className="w-full"
+      className={`w-full transition-all duration-300 ${blurred ? 'blur-md opacity-70' : ''}`}
       style={{ borderRadius: 12, maxHeight: "400px", objectFit: "contain", background: "var(--surface-2)" }}
     />
   );

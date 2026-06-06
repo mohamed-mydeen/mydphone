@@ -4,14 +4,36 @@ from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy import text
 from .database import Base, engine, SessionLocal
-from .routers import auth, contacts, profile, photos, documents
+from .routers import auth, contacts, profile, photos, documents, security
 from .config import settings
 from .models import User
 from .auth import hash_password
 
 # Create tables
 Base.metadata.create_all(bind=engine)
+
+def setup_db_schema():
+    """Safely add new columns to the users table if they don't exist."""
+    db = SessionLocal()
+    try:
+        queries = [
+            "ALTER TABLE users ADD COLUMN vault_pin_hash VARCHAR(255)",
+            "ALTER TABLE users ADD COLUMN vault_locked_until DATETIME",
+            "ALTER TABLE users ADD COLUMN failed_pin_attempts INTEGER DEFAULT 0 NOT NULL",
+            "ALTER TABLE users ADD COLUMN token_version INTEGER DEFAULT 1 NOT NULL",
+        ]
+        for query in queries:
+            try:
+                db.execute(text(query))
+                db.commit()
+            except Exception:
+                db.rollback()
+    finally:
+        db.close()
+
+setup_db_schema()
 
 
 def seed_admin_user():
@@ -70,6 +92,7 @@ app.include_router(contacts.router)
 app.include_router(profile.router)
 app.include_router(photos.router)
 app.include_router(documents.router)
+app.include_router(security.router)
 
 
 @app.get("/", tags=["Health"])
