@@ -125,6 +125,39 @@ def list_contacts(
         pages=max(1, -(-total // ITEMS_PER_PAGE)),
     )
 
+@router.get("/all", response_model=list[ContactOut])
+def get_all_contacts(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Returns all contacts for the user.
+    Also automatically cleans up any exact duplicate contacts to maintain a clean database.
+    """
+    contacts = db.query(Contact).filter(Contact.user_id == current_user.id).order_by(Contact.full_name).all()
+    
+    seen = set()
+    to_delete = []
+    unique_contacts = []
+    
+    for c in contacts:
+        name_key = c.full_name.strip().lower() if c.full_name else ""
+        phone_key = c.phone_number.replace(" ", "").replace("-", "").replace("+", "") if c.phone_number else ""
+        k = (name_key, phone_key)
+        
+        if k in seen:
+            to_delete.append(c)
+        else:
+            seen.add(k)
+            unique_contacts.append(c)
+            
+    if to_delete:
+        for d in to_delete:
+            db.delete(d)
+        db.commit()
+        
+    return unique_contacts
+
 
 @router.get("/search", response_model=list[ContactOut])
 def search_contacts(
