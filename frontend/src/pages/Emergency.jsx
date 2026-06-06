@@ -11,13 +11,54 @@ import Avatar from "../components/Avatar";
 import Navbar from "../components/Navbar";
 import SearchBar from "../components/SearchBar";
 import LoadingSpinner from "../components/LoadingSpinner";
+import { DocumentIcon, ArrowDownTrayIcon } from "@heroicons/react/24/outline";
+
+function formatSize(b) {
+  if (b < 1024) return b + " B";
+  if (b < 1024 * 1024) return (b / 1024).toFixed(1) + " KB";
+  return (b / 1024 / 1024).toFixed(1) + " MB";
+}
 
 export default function Emergency() {
   const [query, setQuery]       = useState("");
   const [results, setResults]   = useState([]);
   const [loading, setLoading]   = useState(false);
   const [searched, setSearched] = useState(false);
+  
+  const [emergencyDocs, setEmergencyDocs] = useState([]);
+  const [loadingDocs, setLoadingDocs] = useState(true);
+
   const timer = useRef(null);
+
+  useEffect(() => {
+    const fetchDocs = async () => {
+      try {
+        const res = await api.get("/documents", { params: { emergency: true } });
+        setEmergencyDocs(res.data);
+      } catch {
+        /* silent */
+      } finally {
+        setLoadingDocs(false);
+      }
+    };
+    fetchDocs();
+  }, []);
+
+  const downloadDoc = async (doc) => {
+    try {
+      const res = await api.get(`/documents/${doc.id}/content`, { responseType: "blob" });
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${doc.document_name}.${doc.file_type.toLowerCase()}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      toast.success("Download started");
+    } catch {
+      toast.error("Download failed");
+    }
+  };
 
   useEffect(() => {
     clearTimeout(timer.current);
@@ -177,24 +218,59 @@ export default function Emergency() {
             </div>
           )}
 
-          {/* Idle state */}
+          {/* Idle state: Show Emergency Documents & Search Prompt */}
           {!searched && (
-            <div
-              className="flex flex-col items-center justify-center py-20 select-none animate-fade-in"
-              style={{ color: "var(--text-4)" }}
-            >
-              <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
-                style={{ background: "var(--surface-2)" }}
-              >
-                <PhoneIcon className="w-7 h-7" strokeWidth={1.5} />
+            <div className="animate-fade-in">
+              {/* Emergency Documents Section */}
+              <div className="mb-8">
+                <h2 className="text-sm font-bold mb-3" style={{ color: "var(--text)" }}>
+                  Critical Documents
+                </h2>
+                {loadingDocs ? (
+                  <div className="flex justify-center py-6"><LoadingSpinner size="sm" /></div>
+                ) : emergencyDocs.length === 0 ? (
+                  <div className="p-4 rounded-xl text-center" style={{ background: "var(--surface-2)", border: "1px dashed var(--border)" }}>
+                    <p className="text-xs" style={{ color: "var(--text-4)" }}>No emergency documents pinned.</p>
+                    <p className="text-2xs mt-1" style={{ color: "var(--text-4)" }}>Go to Secure Vault to mark documents as Emergency.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {emergencyDocs.map(doc => (
+                      <div key={doc.id} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(239,68,68,.1)", color: "#dc2626" }}>
+                          <DocumentIcon className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold truncate" style={{ color: "var(--text)" }}>{doc.document_name}</p>
+                          <p className="text-2xs" style={{ color: "var(--text-4)" }}>{doc.file_type} • {formatSize(doc.file_size)}</p>
+                        </div>
+                        <button onClick={() => downloadDoc(doc)} className="btn-icon p-2" style={{ color: "var(--text-3)", background: "var(--surface-2)" }}>
+                          <ArrowDownTrayIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              <p className="text-sm font-medium mb-1" style={{ color: "var(--text-3)" }}>
-                Ready to search
-              </p>
-              <p className="text-sm text-center max-w-xs">
-                Type a name or phone number above to find contacts instantly
-              </p>
+
+              {/* Search Prompt */}
+              <div
+                className="flex flex-col items-center justify-center py-10 select-none"
+                style={{ color: "var(--text-4)" }}
+              >
+                <div
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
+                  style={{ background: "var(--surface-2)" }}
+                >
+                  <PhoneIcon className="w-6 h-6" strokeWidth={1.5} />
+                </div>
+                <p className="text-sm font-medium mb-1" style={{ color: "var(--text-3)" }}>
+                  Ready to search contacts
+                </p>
+                <p className="text-xs text-center max-w-xs">
+                  Type a name or phone number above to find emergency contacts instantly
+                </p>
+              </div>
             </div>
           )}
         </div>

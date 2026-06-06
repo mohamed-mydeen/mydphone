@@ -151,3 +151,23 @@ class PhotoOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── Document Schemas ──────────────────────────────────────────────────────────
+
+class DocumentOut(BaseModel):
+    id: int
+    user_id: int
+    document_name: str
+    category: str
+    file_type: str
+    content_type: str
+    file_size: int
+    tags: Optional[str]
+    is_favorite: bool
+    is_emergency: bool
+    uploaded_at: datetime
+    updated_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True

@@ -17,6 +17,7 @@ class User(Base):
 
     contacts = relationship("Contact", back_populates="owner", cascade="all, delete-orphan")
     photos = relationship("Photo", back_populates="owner", cascade="all, delete-orphan")
+    documents = relationship("Document", back_populates="owner", cascade="all, delete-orphan")
 
 
 class Contact(Base):
@@ -50,3 +51,23 @@ class Photo(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     owner = relationship("User", back_populates="photos")
+
+
+class Document(Base):
+    __tablename__ = "documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    document_name = Column(String(255), nullable=False, index=True)
+    category = Column(String(50), nullable=False, index=True, default="Other")
+    file_type = Column(String(20), nullable=False)  # pdf, jpg, png, webp
+    content_type = Column(String(100), nullable=False)
+    file_size = Column(Integer, nullable=False)  # bytes
+    file_path = Column(String(500), nullable=False)  # internal secure path
+    tags = Column(String(500), nullable=True)  # comma-separated tags
+    is_favorite = Column(Boolean, default=False, nullable=False)
+    is_emergency = Column(Boolean, default=False, nullable=False)
+    uploaded_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    owner = relationship("User", back_populates="documents")
