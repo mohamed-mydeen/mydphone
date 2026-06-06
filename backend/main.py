@@ -53,14 +53,15 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS — allow configured origins + all Vercel preview deployments for this project
+# CORS — allow all Vercel preview deployments (any subdomain under *.vercel.app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
-    allow_origin_regex=r"https://mydphone[a-zA-Z0-9\-]*\.vercel\.app",
+    allow_origin_regex=r"https://[a-zA-Z0-9\-]+\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Routers
