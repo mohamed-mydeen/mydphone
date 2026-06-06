@@ -1,10 +1,11 @@
 import csv
 import io
+import re
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, func
+from sqlalchemy import or_
 from ..database import get_db
 from ..models import Contact, User
 from ..schemas import (
@@ -31,6 +32,74 @@ def _get_contact_or_404(contact_id: int, user: User, db: Session) -> Contact:
     return contact
 
 
+def _decode_csv(content: bytes) -> str:
+    """Try multiple encodings gracefully."""
+    for enc in ("utf-8-sig", "utf-8", "windows-1252", "latin-1"):
+        try:
+            return content.decode(enc)
+        except (UnicodeDecodeError, LookupError):
+            continue
+    raise ValueError(
+        "Could not read the file encoding. Please open in Excel/Sheets and Save As UTF-8 CSV."
+    )
+
+
+def _extract_row(row: dict) -> dict:
+    """
+    Supports both our native format AND Google Contacts export format.
+    Always returns clean strings; missing values are None / False.
+    """
+    def g(*keys: str) -> str:
+        for k in keys:
+            v = str(row.get(k) or "").strip()
+            if v:
+                return v
+        return ""
+
+    # Name — native first, then build from Google's First/Middle/Last
+    name = g("full_name")
+    if not name:
+        first  = g("First Name")
+        middle = g("Middle Name")
+        last   = g("Last Name")
+        name   = " ".join(filter(None, [first, middle, last]))
+
+    # Phone — native, then Google Phone 1/2/3
+    phone  = g("phone_number", "Phone 1 - Value")
+    phone2 = g("Phone 2 - Value")
+    phone3 = g("Phone 3 - Value")
+
+    # Alternate phone
+    alt = g("alternate_number")
+    if not alt:
+        # Use whichever Google phone we didn't pick as primary
+        alt = phone2 or phone3
+
+    email   = g("email", "E-mail 1 - Value", "E-mail 2 - Value")
+    address = g("address", "Address 1 - Formatted")
+    notes   = g("notes", "Notes")
+
+    is_fav  = g("is_favorite").lower()  in ("true", "1", "yes", "✓", "x")
+    is_emer = g("is_emergency").lower() in ("true", "1", "yes", "✓", "x")
+
+    return {
+        "name":    name,
+        "phone":   phone,
+        "alt":     alt     or None,
+        "email":   email   or None,
+        "address": address or None,
+        "notes":   notes   or None,
+        "is_fav":  is_fav,
+        "is_emer": is_emer,
+    }
+
+
+def _is_valid_phone(raw: str) -> bool:
+    """Accept any number that has at least 6 digits after stripping formatting."""
+    digits = re.sub(r"[^\d]", "", raw)
+    return len(digits) >= 6
+
+
 # ── CRUD ──────────────────────────────────────────────────────────────────────
 
 @router.get("", response_model=PaginatedContacts)
@@ -53,7 +122,7 @@ def list_contacts(
         contacts=contacts,
         total=total,
         page=page,
-        pages=max(1, -(-total // ITEMS_PER_PAGE)),  # ceiling div
+        pages=max(1, -(-total // ITEMS_PER_PAGE)),
     )
 
 
@@ -115,69 +184,123 @@ async def import_contacts(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if not file.filename.endswith(".csv"):
-        raise HTTPException(status_code=400, detail="Only CSV files are accepted")
+    # ── 1. Validate file extension ────────────────────────────────────────────
+    fname = (file.filename or "").lower()
+    if not fname.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only .csv files are accepted.")
 
-    content = await file.read()
-    text = content.decode("utf-8-sig")  # handle BOM
-    reader = csv.DictReader(io.StringIO(text))
+    # ── 2. Read bytes ─────────────────────────────────────────────────────────
+    try:
+        content = await file.read()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not read file: {e}")
 
-    imported, skipped = 0, 0
-    errors = []
+    # ── 3. Decode to text ─────────────────────────────────────────────────────
+    try:
+        text = _decode_csv(content)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
+    # ── 4. Parse CSV structure ────────────────────────────────────────────────
+    try:
+        reader = csv.DictReader(io.StringIO(text))
+        # Force header detection
+        fieldnames = reader.fieldnames
+        if not fieldnames:
+            raise ValueError("CSV file is empty or has no header row.")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid CSV structure: {e}")
+
+    imported = 0
+    skipped  = 0
+    errors: list[str] = []
+
+    # ── 5. Process each row — fully isolated per row ──────────────────────────
     for i, row in enumerate(reader, start=2):
-        name = row.get("full_name", "").strip()
-        phone = row.get("phone_number", "").strip()
-        alt_phone = row.get("alternate_number", "").strip() or None
-        email = row.get("email", "").strip() or None
-        address = row.get("address", "").strip() or None
-        notes = row.get("notes", "").strip() or None
-        is_fav = str(row.get("is_favorite", "")).lower() in ("true", "1", "yes")
-        is_emer = str(row.get("is_emergency", "")).lower() in ("true", "1", "yes")
+        # Skip completely blank rows
+        if not any(str(v).strip() for v in row.values()):
+            continue
 
-        # Fallback to Google Contacts format if native headers are missing
-        if not name and not phone:
-            first = row.get("First Name", "").strip()
-            middle = row.get("Middle Name", "").strip()
-            last = row.get("Last Name", "").strip()
-            name = " ".join(filter(None, [first, middle, last]))
-
-            phone1 = row.get("Phone 1 - Value", "").strip()
-            phone2 = row.get("Phone 2 - Value", "").strip()
-            phone3 = row.get("Phone 3 - Value", "").strip()
-            phone = phone1 or phone2 or phone3
-            
-            if phone == phone1:
-                alt_phone = phone2 or phone3
-            elif phone == phone2:
-                alt_phone = phone3
-
-            email = email or row.get("E-mail 1 - Value", "").strip() or None
-            notes = notes or row.get("Notes", "").strip() or None
-            address = address or row.get("Address 1 - Formatted", "").strip() or None
-
-        # We require a real name. Do not fallback to phone number.
-        if not name or not phone:
-            errors.append(f"Row {i}: Contact must have a valid Name and Phone Number")
+        try:
+            d = _extract_row(row)
+        except Exception as e:
+            errors.append(f"Row {i}: Could not read row — {e}")
             skipped += 1
             continue
 
-        contact = Contact(
-            user_id=current_user.id,
-            full_name=name,
-            phone_number=phone,
-            alternate_number=alt_phone,
-            email=email,
-            address=address,
-            notes=notes,
-            is_favorite=is_fav,
-            is_emergency=is_emer,
-        )
-        db.add(contact)
-        imported += 1
+        name  = d["name"]
+        phone = d["phone"]
 
-    db.commit()
-    return ImportResult(imported=imported, skipped=skipped, errors=errors[:20])
+        # Validate name
+        if not name:
+            errors.append(f"Row {i}: Skipped — no name found.")
+            skipped += 1
+            continue
+
+        # Validate phone
+        if not phone:
+            errors.append(f"Row {i} ({name}): Skipped — no phone number found.")
+            skipped += 1
+            continue
+
+        if not _is_valid_phone(phone):
+            errors.append(f"Row {i} ({name}): Skipped — '{phone}' is not a valid phone number.")
+            skipped += 1
+            continue
+
+        # Validate email loosely (don't crash, just drop)
+        email = d["email"]
+        if email and "@" not in email:
+            email = None
+
+        # Duplicate check — by phone number (most reliable)
+        try:
+            exists = db.query(Contact).filter(
+                Contact.user_id == current_user.id,
+                Contact.phone_number == phone[:30],
+            ).first()
+            if exists:
+                errors.append(f"Row {i} ({name}): Skipped — phone {phone} already exists ({exists.full_name}).")
+                skipped += 1
+                continue
+        except Exception as e:
+            errors.append(f"Row {i} ({name}): DB lookup error — {e}")
+            skipped += 1
+            continue
+
+        # Save — wrapped so one bad row never kills everything
+        try:
+            contact = Contact(
+                user_id=current_user.id,
+                full_name=name[:150],
+                phone_number=phone[:30],
+                alternate_number=d["alt"][:30] if d["alt"] else None,
+                email=email[:255] if email else None,
+                address=d["address"],
+                notes=d["notes"],
+                is_favorite=d["is_fav"],
+                is_emergency=d["is_emer"],
+            )
+            db.add(contact)
+            db.flush()   # catch DB errors now, before commit
+            imported += 1
+        except Exception as e:
+            db.rollback()
+            errors.append(f"Row {i} ({name}): Save error — {e}")
+            skipped += 1
+            continue
+
+    # ── 6. Final commit ───────────────────────────────────────────────────────
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Final save failed after processing {imported} contacts: {e}"
+        )
+
+    return ImportResult(imported=imported, skipped=skipped, errors=errors[:50])
 
 
 @router.get("/{contact_id}", response_model=ContactOut)
@@ -195,6 +318,14 @@ def create_contact(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    existing = db.query(Contact).filter(
+        Contact.user_id == current_user.id,
+        or_(Contact.full_name == payload.full_name, Contact.phone_number == payload.phone_number)
+    ).first()
+
+    if existing:
+        raise HTTPException(status_code=400, detail="A contact with this name or phone number already exists.")
+
     contact = Contact(user_id=current_user.id, **payload.model_dump())
     db.add(contact)
     db.commit()
@@ -210,6 +341,19 @@ def update_contact(
     current_user: User = Depends(get_current_user),
 ):
     contact = _get_contact_or_404(contact_id, current_user, db)
+
+    check_name  = payload.full_name    if payload.full_name    is not None else contact.full_name
+    check_phone = payload.phone_number if payload.phone_number is not None else contact.phone_number
+
+    existing = db.query(Contact).filter(
+        Contact.user_id == current_user.id,
+        or_(Contact.full_name == check_name, Contact.phone_number == check_phone),
+        Contact.id != contact_id
+    ).first()
+
+    if existing:
+        raise HTTPException(status_code=400, detail="A contact with this name or phone number already exists.")
+
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(contact, field, value)
     db.commit()

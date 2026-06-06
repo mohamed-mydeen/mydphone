@@ -50,7 +50,7 @@ export default function Import() {
 
   const handlePasswordSubmit = (e) => {
     e.preventDefault();
-    if (passwordInput === "myd@4262") {
+    if (passwordInput.trim() === "myd@4262") {
       setIsAuthenticated(true);
     } else {
       toast.error("Incorrect password");

@@ -79,8 +79,8 @@ export default function ContactCard({ contact, onView, onEdit, onDelete, onToggl
         </div>
       </div>
 
-      {/* Actions — visible on hover */}
-      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150">
+      {/* Actions — always visible */}
+      <div className="flex items-center gap-1">
         <a
           href={`tel:${phone_number}`}
           className="btn-icon"
