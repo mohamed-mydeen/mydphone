@@ -235,22 +235,6 @@ export default function Contacts() {
               className="card overflow-hidden animate-fade-in"
               style={{ boxShadow: "0 1px 3px rgba(0,0,0,.05)" }}
             >
-              {/* Table header — desktop */}
-              <div
-                className="hidden md:grid px-5 py-2.5 text-2xs font-bold uppercase tracking-widest"
-                style={{
-                  gridTemplateColumns: "minmax(0,1fr) minmax(0,2fr) 160px",
-                  background: "var(--surface-2)",
-                  borderBottom: "1px solid var(--border)",
-                  color: "var(--text-4)",
-                }}
-              >
-                <span>Name</span>
-                <span className="grid grid-cols-2 gap-4">
-                  <span>Phone</span><span>Email</span>
-                </span>
-                <span className="text-right">Actions</span>
-              </div>
 
               {/* Rows */}
               {isSearching ? (
