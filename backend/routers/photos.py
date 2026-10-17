@@ -7,14 +7,20 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
-from ..database import get_db
-from ..models import Photo, User
-from ..schemas import PhotoOut
-from ..auth import get_current_user
+try:
+    from ..database import get_db
+    from ..models import Photo, User
+    from ..schemas import PhotoOut
+    from ..auth import get_current_user
+except (ImportError, ValueError):
+    from database import get_db
+    from models import Photo, User
+    from schemas import PhotoOut
+    from auth import get_current_user
 
 router = APIRouter(prefix="/photos", tags=["Photos"])
 
-UPLOAD_DIR = Path("uploads")
+UPLOAD_DIR = Path(os.getenv("UPLOAD_DIR", "/tmp/uploads" if os.getenv("VERCEL") else "uploads"))
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}

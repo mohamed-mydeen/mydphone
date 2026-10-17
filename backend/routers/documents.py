@@ -8,17 +8,25 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from jose import jwt, JWTError
 
-from ..database import get_db
-from ..models import Document, User, VaultLog
-from ..schemas import DocumentOut
-from ..auth import get_current_user
-from ..config import settings
+import os
+try:
+    from ..database import get_db
+    from ..models import Document, User, VaultLog
+    from ..schemas import DocumentOut
+    from ..auth import get_current_user
+    from ..config import settings
+except (ImportError, ValueError):
+    from database import get_db
+    from models import Document, User, VaultLog
+    from schemas import DocumentOut
+    from auth import get_current_user
+    from config import settings
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
 logger = logging.getLogger("documents")
 
-DOCS_UPLOAD_DIR = Path("uploads/documents")
+DOCS_UPLOAD_DIR = Path(os.getenv("DOCS_UPLOAD_DIR", "/tmp/uploads/documents" if os.getenv("VERCEL") else "uploads/documents"))
 DOCS_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png", ".webp"}

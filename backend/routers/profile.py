@@ -1,9 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from ..database import get_db
-from ..models import User
-from ..schemas import UserOut, ProfileUpdate
-from ..auth import get_current_user, hash_password, verify_password
+try:
+    from ..database import get_db
+    from ..models import User
+    from ..schemas import UserOut, ProfileUpdate
+    from ..auth import get_current_user, hash_password, verify_password
+except (ImportError, ValueError):
+    from database import get_db
+    from models import User
+    from schemas import UserOut, ProfileUpdate
+    from auth import get_current_user, hash_password, verify_password
 
 router = APIRouter(prefix="/profile", tags=["Profile"])
 

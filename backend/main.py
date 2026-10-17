@@ -5,11 +5,25 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
-from .database import Base, engine, SessionLocal
-from .routers import auth, contacts, profile, photos, documents, security
-from .config import settings
-from .models import User
-from .auth import hash_password
+import sys
+import os
+
+_backend_dir = os.path.dirname(os.path.abspath(__file__))
+if _backend_dir not in sys.path:
+    sys.path.insert(0, _backend_dir)
+
+try:
+    from .database import Base, engine, SessionLocal
+    from .routers import auth, contacts, profile, photos, documents, security
+    from .config import settings
+    from .models import User
+    from .auth import hash_password
+except (ImportError, ValueError):
+    from database import Base, engine, SessionLocal
+    from routers import auth, contacts, profile, photos, documents, security
+    from config import settings
+    from models import User
+    from auth import hash_password
 
 # Create tables
 Base.metadata.create_all(bind=engine)

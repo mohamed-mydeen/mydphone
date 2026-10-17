@@ -1,7 +1,10 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from .config import settings
+try:
+    from .config import settings
+except (ImportError, ValueError):
+    from config import settings
 
 _is_sqlite = settings.DATABASE_URL.startswith("sqlite")
 _is_tidb   = "tidbcloud" in settings.DATABASE_URL

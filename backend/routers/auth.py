@@ -1,9 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
-from ..database import get_db
-from ..models import User
-from ..schemas import RegisterRequest, LoginRequest, TokenResponse, UserOut
-from ..auth import hash_password, verify_password, create_access_token
+try:
+    from ..database import get_db
+    from ..models import User
+    from ..schemas import RegisterRequest, LoginRequest, TokenResponse, UserOut
+    from ..auth import hash_password, verify_password, create_access_token
+except (ImportError, ValueError):
+    from database import get_db
+    from models import User
+    from schemas import RegisterRequest, LoginRequest, TokenResponse, UserOut
+    from auth import hash_password, verify_password, create_access_token
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 

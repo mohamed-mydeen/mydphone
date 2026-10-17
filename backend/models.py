@@ -3,7 +3,10 @@ from sqlalchemy import (
     DateTime, ForeignKey, func
 )
 from sqlalchemy.orm import relationship
-from .database import Base
+try:
+    from .database import Base
+except (ImportError, ValueError):
+    from database import Base
 
 
 class User(Base):

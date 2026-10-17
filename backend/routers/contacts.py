@@ -6,13 +6,22 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, 
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
-from ..database import get_db
-from ..models import Contact, User
-from ..schemas import (
-    ContactCreate, ContactUpdate, ContactOut,
-    PaginatedContacts, ImportResult,
-)
-from ..auth import get_current_user
+try:
+    from ..database import get_db
+    from ..models import Contact, User
+    from ..schemas import (
+        ContactCreate, ContactUpdate, ContactOut,
+        PaginatedContacts, ImportResult,
+    )
+    from ..auth import get_current_user
+except (ImportError, ValueError):
+    from database import get_db
+    from models import Contact, User
+    from schemas import (
+        ContactCreate, ContactUpdate, ContactOut,
+        PaginatedContacts, ImportResult,
+    )
+    from auth import get_current_user
 
 router = APIRouter(prefix="/contacts", tags=["Contacts"])
 

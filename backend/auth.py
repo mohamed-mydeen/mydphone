@@ -5,9 +5,14 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-from .database import get_db
-from .models import User
-from .config import settings
+try:
+    from .database import get_db
+    from .models import User
+    from .config import settings
+except (ImportError, ValueError):
+    from database import get_db
+    from models import User
+    from config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer_scheme = HTTPBearer()

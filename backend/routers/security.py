@@ -5,10 +5,16 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 
-from ..database import get_db
-from ..models import User, VaultLog, TrustedDevice
-from ..schemas import VaultLogOut, TrustedDeviceOut
-from ..auth import get_current_user
+try:
+    from ..database import get_db
+    from ..models import User, VaultLog, TrustedDevice
+    from ..schemas import VaultLogOut, TrustedDeviceOut
+    from ..auth import get_current_user, create_access_token, verify_password
+except (ImportError, ValueError):
+    from database import get_db
+    from models import User, VaultLog, TrustedDevice
+    from schemas import VaultLogOut, TrustedDeviceOut
+    from auth import get_current_user, create_access_token, verify_password
 
 router = APIRouter(prefix="/security", tags=["Security"])
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -117,7 +123,6 @@ def verify_vault_pin(
     # but the frontend will just set a local state variable for "unlocked" and attach
     # the PIN in headers or just rely on state. 
     # For a strictly secure implementation, we return a short-lived token.
-    from ..auth import create_access_token
     vault_token = create_access_token({"sub": str(current_user.id), "vault": True}, timedelta(minutes=15))
     return {"vault_token": vault_token}
 
@@ -129,7 +134,6 @@ def reset_pin(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    from ..auth import verify_password
     if not verify_password(payload.password, current_user.password_hash):
         raise HTTPException(status_code=401, detail="Incorrect account password.")
     
