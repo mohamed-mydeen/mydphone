@@ -11,12 +11,12 @@ try:
     from ..database import get_db
     from ..models import Photo, User
     from ..schemas import PhotoOut
-    from ..auth import get_current_user
+    from ..auth import get_current_user, require_vault
 except (ImportError, ValueError):
     from database import get_db
     from models import Photo, User
     from schemas import PhotoOut
-    from auth import get_current_user
+    from auth import get_current_user, require_vault
 
 router = APIRouter(prefix="/photos", tags=["Photos"])
 
@@ -26,7 +26,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
-@router.post("", response_model=PhotoOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=PhotoOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_vault)])
 async def upload_photo(
     file: UploadFile = File(...),
     album: str = Form("Personal"),
@@ -72,7 +72,7 @@ async def upload_photo(
     return photo
 
 
-@router.get("", response_model=List[PhotoOut])
+@router.get("", response_model=List[PhotoOut], dependencies=[Depends(require_vault)])
 def list_photos(
     album: Optional[str] = Query(None),
     q: Optional[str] = Query(None),
@@ -92,7 +92,7 @@ def list_photos(
     return query.order_by(Photo.created_at.desc()).all()
 
 
-@router.get("/{photo_id}/content")
+@router.get("/{photo_id}/content", dependencies=[Depends(require_vault)])
 def get_photo_content(
     photo_id: int,
     db: Session = Depends(get_db),
@@ -116,7 +116,7 @@ def get_photo_content(
     )
 
 
-@router.delete("/{photo_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{photo_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_vault)])
 def delete_photo(
     photo_id: int,
     db: Session = Depends(get_db),

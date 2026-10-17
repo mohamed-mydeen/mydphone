@@ -9,6 +9,8 @@ import SearchBar from "../components/SearchBar";
 import EmptyState from "../components/EmptyState";
 import Navbar from "../components/Navbar";
 import LoadingSpinner from "../components/LoadingSpinner";
+import PinPad from "../components/PinPad";
+import { useVault } from "../context/VaultContext";
 
 const FILTERS = [
   { label: "All contacts", value: "all" },
@@ -17,6 +19,7 @@ const FILTERS = [
 ];
 
 export default function Contacts() {
+  const { isUnlocked }                  = useVault();
   const [contacts, setContacts]         = useState([]);
   const [loading, setLoading]           = useState(true);
   const [query, setQuery]               = useState("");
@@ -27,37 +30,36 @@ export default function Contacts() {
   const [editTarget, setEditTarget]     = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  // 1. Instantly load from secure session storage (Fast Access)
-  // 2. Fetch fresh from server (Background sync)
+  // Fetch contacts only when vault is actively unlocked
   useEffect(() => {
-    const cached = sessionStorage.getItem("secure_vault_contacts");
-    if (cached) {
-      try {
-        setContacts(JSON.parse(cached));
-        setLoading(false);
-      } catch (e) {
-        sessionStorage.removeItem("secure_vault_contacts");
-      }
+    if (!isUnlocked) {
+      setContacts([]);
+      setLoading(false);
+      return;
     }
+
+    let active = true;
+    setLoading(true);
 
     const fetchAllContacts = async () => {
       try {
         const res = await api.get("/contacts/all");
-        setContacts(res.data);
-        sessionStorage.setItem("secure_vault_contacts", JSON.stringify(res.data));
+        if (active) {
+          setContacts(res.data);
+        }
       } catch (err) {
-        if (!cached) toast.error("Failed to load contacts");
+        if (active) toast.error("Failed to load contacts");
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
     
     fetchAllContacts();
-  }, []);
+    return () => { active = false; };
+  }, [isUnlocked]);
 
-  const updateCache = (newList) => {
+  const updateContacts = (newList) => {
     setContacts(newList);
-    sessionStorage.setItem("secure_vault_contacts", JSON.stringify(newList));
   };
 
   const handleSave = async (payload) => {
@@ -66,12 +68,12 @@ export default function Contacts() {
       if (editTarget) {
         const res = await api.put(`/contacts/${editTarget.id}`, payload);
         const updated = contacts.map(c => c.id === editTarget.id ? res.data : c);
-        updateCache(updated);
+        updateContacts(updated);
         toast.success("Contact updated");
       } else {
         const res = await api.post("/contacts", payload);
         const updated = [...contacts, res.data].sort((a, b) => a.full_name.localeCompare(b.full_name));
-        updateCache(updated);
+        updateContacts(updated);
         toast.success("Contact added");
       }
       setShowForm(false);
@@ -89,7 +91,7 @@ export default function Contacts() {
     try {
       await api.delete(`/contacts/${deleteTarget.id}`);
       const updated = contacts.filter(c => c.id !== deleteTarget.id);
-      updateCache(updated);
+      updateContacts(updated);
       toast.success("Contact deleted");
       setDeleteTarget(null);
     } catch {
@@ -101,7 +103,7 @@ export default function Contacts() {
     try {
       const res = await api.put(`/contacts/${contact.id}`, { is_favorite: !contact.is_favorite });
       const updated = contacts.map(c => c.id === contact.id ? res.data : c);
-      updateCache(updated);
+      updateContacts(updated);
     } catch {
       toast.error("Update failed");
     }
@@ -149,6 +151,17 @@ export default function Contacts() {
     }, {});
   }, [displayed]);
   const letters = Object.keys(grouped).sort((a, b) => a.localeCompare(b));
+
+  if (!isUnlocked) {
+    return (
+      <div className="app-shell">
+        <Navbar />
+        <div className="page-body flex items-center justify-center">
+          <PinPad />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell">

@@ -13,13 +13,13 @@ try:
     from ..database import get_db
     from ..models import Document, User, VaultLog
     from ..schemas import DocumentOut
-    from ..auth import get_current_user
+    from ..auth import get_current_user, require_vault, verify_vault_token
     from ..config import settings
 except (ImportError, ValueError):
     from database import get_db
     from models import Document, User, VaultLog
     from schemas import DocumentOut
-    from auth import get_current_user
+    from auth import get_current_user, require_vault, verify_vault_token
     from config import settings
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
@@ -45,19 +45,6 @@ VALID_CATEGORIES = [
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-
-def verify_vault_access(x_vault_token: Optional[str] = Header(None)) -> bool:
-    if not x_vault_token:
-        return False
-    try:
-        payload = jwt.decode(x_vault_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        return payload.get("vault") is True
-    except JWTError:
-        return False
-
-def require_vault(x_vault_token: Optional[str] = Header(None)):
-    if not verify_vault_access(x_vault_token):
-        raise HTTPException(status_code=403, detail="Vault access locked. Please enter your PIN.")
 
 def get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
@@ -159,7 +146,7 @@ def list_documents(
 ):
     # If not specifically asking for emergency documents, require vault token
     if emergency is not True:
-        if not verify_vault_access(x_vault_token):
+        if not verify_vault_token(x_vault_token, current_user):
             raise HTTPException(status_code=403, detail="Vault access locked.")
     query = db.query(Document).filter(Document.user_id == current_user.id)
 
@@ -202,7 +189,7 @@ def get_document_content(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
-    if not doc.is_emergency and not verify_vault_access(x_vault_token):
+    if not doc.is_emergency and not verify_vault_token(x_vault_token, current_user):
         raise HTTPException(status_code=403, detail="Vault access locked.")
 
     file_path = Path(doc.file_path)

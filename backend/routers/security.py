@@ -9,12 +9,12 @@ try:
     from ..database import get_db
     from ..models import User, VaultLog, TrustedDevice
     from ..schemas import VaultLogOut, TrustedDeviceOut
-    from ..auth import get_current_user, create_access_token, verify_password
+    from ..auth import get_current_user, create_access_token, verify_password, create_vault_token
 except (ImportError, ValueError):
     from database import get_db
     from models import User, VaultLog, TrustedDevice
     from schemas import VaultLogOut, TrustedDeviceOut
-    from auth import get_current_user, create_access_token, verify_password
+    from auth import get_current_user, create_access_token, verify_password, create_vault_token
 
 router = APIRouter(prefix="/security", tags=["Security"])
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -26,6 +26,7 @@ class PinSetupRequest(BaseModel):
 
 class PinVerifyRequest(BaseModel):
     pin: str
+    timeout_minutes: Optional[int] = 5
 
 class PinResetRequest(BaseModel):
     password: str
@@ -82,7 +83,8 @@ def setup_pin(
     current_user.vault_pin_hash = hash_pin(payload.pin)
     db.commit()
     log_vault_action(db, current_user.id, "pin_setup", get_client_ip(request))
-    return {"message": "PIN setup successfully"}
+    vault_token = create_vault_token(current_user, minutes=5)
+    return {"message": "PIN setup successfully", "vault_token": vault_token}
 
 
 @router.post("/pin/verify")
@@ -119,11 +121,8 @@ def verify_vault_pin(
     db.commit()
     log_vault_action(db, current_user.id, "pin_success", get_client_ip(request), device_id)
     
-    # Normally we would issue a short-lived signed JWT for the vault here,
-    # but the frontend will just set a local state variable for "unlocked" and attach
-    # the PIN in headers or just rely on state. 
-    # For a strictly secure implementation, we return a short-lived token.
-    vault_token = create_access_token({"sub": str(current_user.id), "vault": True}, timedelta(minutes=15))
+    timeout = max(1, min(60, payload.timeout_minutes or 5))
+    vault_token = create_vault_token(current_user, minutes=timeout)
     return {"vault_token": vault_token}
 
 
@@ -143,6 +142,8 @@ def reset_pin(
     current_user.vault_pin_hash = hash_pin(payload.new_pin)
     current_user.failed_pin_attempts = 0
     current_user.vault_locked_until = None
+    # Invalidate existing vault sessions
+    current_user.token_version = getattr(current_user, "token_version", 1) + 1
     db.commit()
     log_vault_action(db, current_user.id, "pin_reset", get_client_ip(request))
     return {"message": "PIN reset successfully"}
@@ -202,13 +203,16 @@ def remove_device(
 
 @router.post("/logout-all")
 def logout_all_devices(
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     current_user.token_version = getattr(current_user, "token_version", 1) + 1
-    # also wipe trusted devices if desired, but usually we just invalidate JWTs
+    db.query(TrustedDevice).filter(TrustedDevice.user_id == current_user.id).delete()
     db.commit()
+    log_vault_action(db, current_user.id, "logout_all", get_client_ip(request))
     return {"message": "All devices logged out"}
+
 
 
 # ── Logs Endpoint ──

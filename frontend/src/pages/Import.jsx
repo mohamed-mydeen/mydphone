@@ -10,6 +10,8 @@ import { Link } from "react-router-dom";
 import toast from "react-hot-toast";
 import api from "../api/axios";
 import Navbar from "../components/Navbar";
+import PinPad from "../components/PinPad";
+import { useVault } from "../context/VaultContext";
 
 /* ─── Google Contacts CSV parser (runs entirely in browser) ─── */
 function parseCSV(text) {
@@ -92,23 +94,15 @@ function isValidPhone(p) {
 
 /* ─── Main Component ─── */
 export default function Import() {
+  const { isUnlocked }            = useVault();
   const [file, setFile]           = useState(null);
   const [preview, setPreview]     = useState(null); // parsed contacts before import
   const [importing, setImporting] = useState(false);
   const [progress, setProgress]   = useState({ done: 0, total: 0 });
   const [result, setResult]       = useState(null);
   const [dragging, setDragging]   = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [passwordInput, setPasswordInput]     = useState("");
   const inputRef = useRef();
   const abortRef = useRef(false);
-
-  /* ── Password gate ── */
-  const handlePasswordSubmit = (e) => {
-    e.preventDefault();
-    if (passwordInput.trim() === "myd@4262") setIsAuthenticated(true);
-    else toast.error("Incorrect password");
-  };
 
   /* ── File selection → parse immediately in browser ── */
   const handleFile = (f) => {
@@ -175,23 +169,13 @@ export default function Import() {
     else toast.error("No contacts were imported");
   };
 
-  /* ── Password screen ── */
-  if (!isAuthenticated) {
+  /* ── Vault PIN gate ── */
+  if (!isUnlocked) {
     return (
       <div className="app-shell">
         <Navbar />
-        <div className="page-body">
-          <div className="page-content" style={{ maxWidth: 420, margin: "0 auto" }}>
-            <div className="card p-6">
-              <h2 className="text-lg font-bold mb-2" style={{ color: "var(--text)" }}>Access Restricted</h2>
-              <p className="text-sm mb-5" style={{ color: "var(--text-3)" }}>Enter the password to access Import.</p>
-              <form onSubmit={handlePasswordSubmit}>
-                <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)}
-                  placeholder="Password" className="input mb-3" autoFocus />
-                <button type="submit" className="btn-primary w-full py-2.5">Unlock</button>
-              </form>
-            </div>
-          </div>
+        <div className="page-body flex items-center justify-center">
+          <PinPad />
         </div>
       </div>
     );

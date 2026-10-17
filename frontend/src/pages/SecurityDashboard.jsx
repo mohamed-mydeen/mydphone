@@ -29,7 +29,7 @@ function getActionLabel(action) {
 }
 
 export default function SecurityDashboard() {
-  const { isUnlocked, privacyMode, setPrivacyMode, autoLockMinutes, setAutoLockMinutes } = useVault();
+  const { isUnlocked, privacyMode, setPrivacyMode, autoLockMinutes, setAutoLockMinutes, lockVault } = useVault();
   const [logs, setLogs] = useState([]);
   const [devices, setDevices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -67,10 +67,12 @@ export default function SecurityDashboard() {
     try {
       await api.post("/security/logout-all");
       toast.success("All devices logged out.");
+      localStorage.removeItem("ecv_token");
+      localStorage.removeItem("ecv_user");
+      lockVault();
       setTimeout(() => {
-        localStorage.removeItem("ecv_token");
         window.location.href = "/login";
-      }, 1000);
+      }, 500);
     } catch {
       toast.error("Failed to execute global logout");
     }
@@ -102,6 +104,17 @@ export default function SecurityDashboard() {
               <p className="text-xs" style={{ color: "var(--text-4)" }}>
                 {isUnlocked ? `Auto-locks after ${autoLockMinutes} min of inactivity.` : "Vault is currently secured. PIN required."}
               </p>
+              {isUnlocked && (
+                <button
+                  onClick={() => {
+                    lockVault();
+                    toast.success("Vault locked");
+                  }}
+                  className="mt-3 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  Lock Vault Now
+                </button>
+              )}
             </div>
 
             {/* Privacy & Settings */}

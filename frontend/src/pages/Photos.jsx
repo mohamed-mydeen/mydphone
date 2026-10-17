@@ -8,6 +8,8 @@ import EmptyState from "../components/EmptyState";
 import LoadingSpinner from "../components/LoadingSpinner";
 import PhotoUploadModal from "../components/PhotoUploadModal";
 import Modal from "../components/Modal";
+import PinPad from "../components/PinPad";
+import { useVault } from "../context/VaultContext";
 
 const ALBUMS = [
   { label: "All Photos", value: "All" },
@@ -24,19 +26,24 @@ function SecureImage({ photoId, alt, className, style, onClick }) {
 
   useEffect(() => {
     let active = true;
+    let objectUrl = null;
     const fetchImage = async () => {
       try {
         const res = await api.get(`/photos/${photoId}/content`, { responseType: "blob" });
         if (active) {
-          setSrc(URL.createObjectURL(res.data));
+          objectUrl = URL.createObjectURL(res.data);
+          setSrc(objectUrl);
           setLoading(false);
         }
-      } catch (err) {
+      } catch {
         if (active) setLoading(false);
       }
     };
     fetchImage();
-    return () => { active = false; };
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
   }, [photoId]);
 
   if (loading) {
@@ -59,6 +66,7 @@ function SecureImage({ photoId, alt, className, style, onClick }) {
 }
 
 export default function Photos() {
+  const { isUnlocked } = useVault();
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -67,15 +75,6 @@ export default function Photos() {
   const [showUpload, setShowUpload] = useState(false);
   const [previewPhoto, setPreviewPhoto] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
-
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [passwordInput, setPasswordInput] = useState("");
-
-  const handlePasswordSubmit = (e) => {
-    e.preventDefault();
-    if (passwordInput.trim() === "4262") setIsAuthenticated(true);
-    else toast.error("Incorrect password");
-  };
 
   const loadPhotos = async (albumFilter = "All") => {
     setLoading(true);
@@ -91,8 +90,13 @@ export default function Photos() {
   };
 
   useEffect(() => {
-    loadPhotos(filter);
-  }, [filter]);
+    if (isUnlocked) {
+      loadPhotos(filter);
+    } else {
+      setPhotos([]);
+      setLoading(false);
+    }
+  }, [filter, isUnlocked]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -124,28 +128,12 @@ export default function Photos() {
 
   const isSearching = !!query.trim();
 
-  if (!isAuthenticated) {
+  if (!isUnlocked) {
     return (
       <div className="app-shell">
         <Navbar />
-        <div className="page-body">
-          <div className="page-content" style={{ maxWidth: 420, margin: "0 auto" }}>
-            <div className="card p-6">
-              <h2 className="text-lg font-bold mb-2" style={{ color: "var(--text)" }}>Access Restricted</h2>
-              <p className="text-sm mb-5" style={{ color: "var(--text-3)" }}>Enter the password to access the Secure Vault.</p>
-              <form onSubmit={handlePasswordSubmit}>
-                <input 
-                  type="password" 
-                  value={passwordInput} 
-                  onChange={(e) => setPasswordInput(e.target.value)}
-                  placeholder="pass keyword: ur favorite 4 digit number" 
-                  className="input mb-3" 
-                  autoFocus 
-                />
-                <button type="submit" className="btn-primary w-full py-2.5">Unlock</button>
-              </form>
-            </div>
-          </div>
+        <div className="page-body flex items-center justify-center">
+          <PinPad />
         </div>
       </div>
     );

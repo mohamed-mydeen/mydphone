@@ -69,9 +69,11 @@ export default function PinPad() {
   const handleSetup = async () => {
     setLoading(true);
     try {
-      await setupPin(pin);
+      const res = await setupPin(pin);
       toast.success("Vault PIN configured securely.");
-      // It will auto switch to VERIFY or be unlocked
+      if (!res?.vault_token) {
+        await verifyPin(pin);
+      }
     } catch (err) {
       toast.error(err.response?.data?.detail || "Failed to setup PIN");
       setPin("");

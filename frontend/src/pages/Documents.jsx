@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import {
   PlusIcon, DocumentIcon, TrashIcon, XMarkIcon,
   StarIcon, ShieldExclamationIcon, ArrowDownTrayIcon,
-  FolderIcon, MagnifyingGlassIcon, Squares2X2Icon, ListBulletIcon,
+  FolderIcon, Squares2X2Icon, ListBulletIcon,
 } from "@heroicons/react/24/outline";
 import { StarIcon as StarSolid, ShieldExclamationIcon as ShieldSolid } from "@heroicons/react/24/solid";
 import toast from "react-hot-toast";
@@ -97,6 +97,10 @@ export default function Documents() {
     if (isUnlocked) {
       loadDocs();
       loadStats();
+    } else {
+      setDocs([]);
+      setStats(null);
+      setLoading(false);
     }
   }, [filter, isUnlocked]);
 
@@ -152,7 +156,7 @@ export default function Documents() {
     }
   };
 
-  const handleUploadSuccess = (newDocs) => {
+  const handleUploadSuccess = () => {
     setShowUpload(false);
     loadDocs();
     loadStats();

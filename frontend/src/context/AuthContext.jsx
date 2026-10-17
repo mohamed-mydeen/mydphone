@@ -30,6 +30,10 @@ export function AuthProvider({ children }) {
     try { await api.post("/auth/logout"); } catch {}
     localStorage.removeItem("ecv_token");
     localStorage.removeItem("ecv_user");
+    try {
+      sessionStorage.removeItem("ecv_vault_token");
+      sessionStorage.removeItem("secure_vault_contacts");
+    } catch {}
     setUser(null);
   }, []);
 

@@ -2,7 +2,7 @@ import csv
 import io
 import re
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Header, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
@@ -13,7 +13,7 @@ try:
         ContactCreate, ContactUpdate, ContactOut,
         PaginatedContacts, ImportResult,
     )
-    from ..auth import get_current_user
+    from ..auth import get_current_user, require_vault, verify_vault_token
 except (ImportError, ValueError):
     from database import get_db
     from models import Contact, User
@@ -21,7 +21,7 @@ except (ImportError, ValueError):
         ContactCreate, ContactUpdate, ContactOut,
         PaginatedContacts, ImportResult,
     )
-    from auth import get_current_user
+    from auth import get_current_user, require_vault, verify_vault_token
 
 router = APIRouter(prefix="/contacts", tags=["Contacts"])
 
@@ -111,7 +111,7 @@ def _is_valid_phone(raw: str) -> bool:
 
 # ── CRUD ──────────────────────────────────────────────────────────────────────
 
-@router.get("", response_model=PaginatedContacts)
+@router.get("", response_model=PaginatedContacts, dependencies=[Depends(require_vault)])
 def list_contacts(
     page: int = Query(1, ge=1),
     favorite: Optional[bool] = None,
@@ -134,7 +134,7 @@ def list_contacts(
         pages=max(1, -(-total // ITEMS_PER_PAGE)),
     )
 
-@router.get("/all", response_model=list[ContactOut])
+@router.get("/all", response_model=list[ContactOut], dependencies=[Depends(require_vault)])
 def get_all_contacts(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -174,7 +174,9 @@ def search_contacts(
     emergency_only: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    x_vault_token: Optional[str] = Header(None),
 ):
+    is_vault_unlocked = verify_vault_token(x_vault_token, current_user)
     like = f"%{q}%"
     query = db.query(Contact).filter(
         Contact.user_id == current_user.id,
@@ -184,12 +186,13 @@ def search_contacts(
             Contact.email.ilike(like),
         ),
     )
-    if emergency_only:
+    # If emergency_only requested OR vault is locked, restrict results to emergency contacts
+    if emergency_only or not is_vault_unlocked:
         query = query.filter(Contact.is_emergency == True)
     return query.order_by(Contact.full_name).limit(50).all()
 
 
-@router.get("/export")
+@router.get("/export", dependencies=[Depends(require_vault)])
 def export_contacts(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -220,7 +223,7 @@ def export_contacts(
     )
 
 
-@router.post("/import", response_model=ImportResult, status_code=status.HTTP_200_OK)
+@router.post("/import", response_model=ImportResult, status_code=status.HTTP_200_OK, dependencies=[Depends(require_vault)])
 async def import_contacts(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
@@ -345,7 +348,7 @@ async def import_contacts(
     return ImportResult(imported=imported, skipped=skipped, errors=errors[:50])
 
 
-@router.get("/{contact_id}", response_model=ContactOut)
+@router.get("/{contact_id}", response_model=ContactOut, dependencies=[Depends(require_vault)])
 def get_contact(
     contact_id: int,
     db: Session = Depends(get_db),
@@ -354,7 +357,7 @@ def get_contact(
     return _get_contact_or_404(contact_id, current_user, db)
 
 
-@router.post("", response_model=ContactOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ContactOut, status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_vault)])
 def create_contact(
     payload: ContactCreate,
     db: Session = Depends(get_db),
@@ -375,7 +378,7 @@ def create_contact(
     return contact
 
 
-@router.put("/{contact_id}", response_model=ContactOut)
+@router.put("/{contact_id}", response_model=ContactOut, dependencies=[Depends(require_vault)])
 def update_contact(
     contact_id: int,
     payload: ContactUpdate,
@@ -403,7 +406,7 @@ def update_contact(
     return contact
 
 
-@router.delete("/{contact_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{contact_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_vault)])
 def delete_contact(
     contact_id: int,
     db: Session = Depends(get_db),

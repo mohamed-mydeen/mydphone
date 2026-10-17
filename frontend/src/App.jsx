@@ -4,6 +4,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { VaultProvider } from "./context/VaultContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import VaultGate from "./components/VaultGate";
 import PageTransition from "./components/PageTransition";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -26,14 +27,16 @@ function AnimatedRoutes() {
         <Route path="/login"           element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
 
-        {/* Protected */}
-        <Route path="/contacts"  element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
-        <Route path="/photos"    element={<ProtectedRoute><Photos /></ProtectedRoute>} />
-        <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
+        {/* Protected Sensitive Vault Routes (Require Auth + Vault PIN Unlock) */}
+        <Route path="/contacts"  element={<ProtectedRoute><VaultGate><Contacts /></VaultGate></ProtectedRoute>} />
+        <Route path="/photos"    element={<ProtectedRoute><VaultGate><Photos /></VaultGate></ProtectedRoute>} />
+        <Route path="/documents" element={<ProtectedRoute><VaultGate><Documents /></VaultGate></ProtectedRoute>} />
+        <Route path="/import"    element={<ProtectedRoute><VaultGate><Import /></VaultGate></ProtectedRoute>} />
+
+        {/* Protected General / Emergency Routes */}
         <Route path="/security"  element={<ProtectedRoute><SecurityDashboard /></ProtectedRoute>} />
         <Route path="/emergency" element={<ProtectedRoute><Emergency /></ProtectedRoute>} />
         <Route path="/profile"   element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-        <Route path="/import"    element={<ProtectedRoute><Import /></ProtectedRoute>} />
 
         {/* Default */}
         <Route path="*" element={<Navigate to="/contacts" replace />} />
