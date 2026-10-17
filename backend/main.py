@@ -110,6 +110,7 @@ app.include_router(security.router)
 
 
 @app.get("/", tags=["Health"])
+@app.get("/api/index", tags=["Health"])
 def root():
     return {"status": "ok", "app": settings.APP_NAME}
 
